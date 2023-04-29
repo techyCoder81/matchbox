@@ -352,7 +352,7 @@ impl WebRtcChannel {
     }
 
     /// Try to send a packet to the given peer.
-    pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result<(),()> {
+    pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result<(),TrySendError> {
         return self.tx.unbounded_send((peer, packet));
     }
 }
@@ -567,13 +567,13 @@ impl WebRtcSocket<SingleChannel> {
     }
 
     /// Send a packet to the given peer.
-    pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result<(),()> {
-        self.channels
+    pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result<(),TrySendError> {
+        return self.channels
             .get_mut(0)
             .unwrap()
             .as_mut()
             .unwrap()
-            .send(packet, peer)
+            .send(packet, peer);
     }
 }
 
