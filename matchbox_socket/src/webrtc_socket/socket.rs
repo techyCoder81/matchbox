@@ -568,16 +568,16 @@ impl WebRtcSocket<SingleChannel> {
 
     /// Send a packet to the given peer.
     pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result<(),()> {
-        return match self.channels
+        match self.channels
             .get_mut(0)
             .unwrap()
             .as_mut()
             .unwrap()
             .send(packet, peer) {
-                Ok(()) => Ok(()),
+                Ok(()) => return Ok(()),
                 Err(e) => {
                     error!("Failed to send: {:x}", e);
-                    return Err(());
+                    return Err(())
                 }
         }
     }
