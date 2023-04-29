@@ -352,7 +352,7 @@ impl WebRtcChannel {
     }
 
     /// Try to send a packet to the given peer.
-    pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result<(),Error> {
+    pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result<(),futures_channel::mpsc::TrySendError<(PeerId, Box<[u8]>)>> {
         return self.tx.unbounded_send((peer, packet));
     }
 }
@@ -567,7 +567,7 @@ impl WebRtcSocket<SingleChannel> {
     }
 
     /// Send a packet to the given peer.
-    pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result<(),Error> {
+    pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result<(),()> {
         return match self.channels
             .get_mut(0)
             .unwrap()
@@ -577,7 +577,7 @@ impl WebRtcSocket<SingleChannel> {
                 Ok(()) => Ok(()),
                 Err(e) => {
                     error!("Failed to send: {:x}", e);
-                    return Error::Signaling(SignalingError::ConnectionFailed(e));
+                    return Err(());
                 }
         }
     }
