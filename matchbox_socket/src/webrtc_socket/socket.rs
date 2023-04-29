@@ -573,7 +573,7 @@ impl WebRtcSocket<SingleChannel> {
             .unwrap()
             .as_mut()
             .unwrap()
-            .send(packet, peer) {
+            .try_send(packet, peer) {
                 Ok(()) => return Ok(()),
                 Err(e) => {
                     error!("Failed to send: {:x}", e);
