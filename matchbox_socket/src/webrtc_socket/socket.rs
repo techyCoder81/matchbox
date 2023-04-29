@@ -7,7 +7,7 @@ use crate::{
     Error,
 };
 use futures::{future::Fuse, select, Future, FutureExt, StreamExt};
-use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender, TrySendError};
+use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
 use log::{debug, error, info};
 use matchbox_protocol::PeerId;
 use std::{collections::HashMap, marker::PhantomData, pin::Pin, time::Duration};
@@ -352,7 +352,7 @@ impl WebRtcChannel {
     }
 
     /// Try to send a packet to the given peer.
-    pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result<(),TrySendError> {
+    pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result<(),Error> {
         return self.tx.unbounded_send((peer, packet));
     }
 }
@@ -567,13 +567,19 @@ impl WebRtcSocket<SingleChannel> {
     }
 
     /// Send a packet to the given peer.
-    pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result<(),TrySendError> {
-        return self.channels
+    pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result<(),Error> {
+        return match self.channels
             .get_mut(0)
             .unwrap()
             .as_mut()
             .unwrap()
-            .send(packet, peer);
+            .send(packet, peer) {
+                Ok(()) => Ok(()),
+                Err(e) => {
+                    error!("Failed to send: {:x}", e);
+                    return Error::Signaling(SignalingError::ConnectionFailed(e));
+                }
+        }
     }
 }
 
