@@ -8,7 +8,7 @@ use crate::{
 };
 use futures::{future::Fuse, select, Future, FutureExt, StreamExt};
 use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
-use log::{debug, error};
+use log::{debug, error, info};
 use matchbox_protocol::PeerId;
 use std::{collections::HashMap, marker::PhantomData, pin::Pin, time::Duration};
 
@@ -608,56 +608,64 @@ async fn run_socket(
     messages_from_peers_tx: Vec<futures_channel::mpsc::UnboundedSender<(PeerId, Packet)>>,
 ) -> Result<(), Error> {
     debug!("Starting WebRtcSocket");
-
-    let (requests_sender, requests_receiver) = futures_channel::mpsc::unbounded::<PeerRequest>();
-    let (events_sender, events_receiver) = futures_channel::mpsc::unbounded::<PeerEvent>();
-
-    let signaling_loop_fut = signaling_loop::<UseSignaller>(
-        config.attempts,
-        config.room_url,
-        requests_receiver,
-        events_sender,
-    );
-
-    let channels = MessageLoopChannels {
-        requests_sender,
-        events_receiver,
-        peer_messages_out_rx,
-        peer_state_tx,
-        messages_from_peers_tx,
-    };
-    let message_loop_fut = message_loop::<UseMessenger>(
-        id_tx,
-        &config.ice_server,
-        &config.channels,
-        channels,
-        config.keep_alive_interval,
-    );
-
-    let mut message_loop_done = Box::pin(message_loop_fut.fuse());
-    let mut signaling_loop_done = Box::pin(signaling_loop_fut.fuse());
+    let mut count = 0;
     loop {
-        select! {
-            _ = message_loop_done => {
-                debug!("Message loop completed");
-                break;
-            }
+        let (requests_sender, requests_receiver) = futures_channel::mpsc::unbounded::<PeerRequest>();
+        let (events_sender, events_receiver) = futures_channel::mpsc::unbounded::<PeerEvent>();
 
-            sigloop = signaling_loop_done => {
-                match sigloop {
-                    Ok(()) => debug!("Signaling loop completed"),
-                    Err(e) => {
-                        // TODO: Reconnect X attempts if configured to reconnect.
-                        error!("{e:?}");
-                        return Err(Error::from(e));
-                    },
+        let signaling_loop_fut = signaling_loop::<UseSignaller>(
+            config.attempts,
+            config.room_url,
+            requests_receiver,
+            events_sender,
+        );
+
+        let channels = MessageLoopChannels {
+            requests_sender,
+            events_receiver,
+            peer_messages_out_rx,
+            peer_state_tx,
+            messages_from_peers_tx,
+        };
+        let message_loop_fut = message_loop::<UseMessenger>(
+            id_tx,
+            &config.ice_server,
+            &config.channels,
+            channels,
+            config.keep_alive_interval,
+        );
+
+        let mut message_loop_done = Box::pin(message_loop_fut.fuse());
+        let mut signaling_loop_done = Box::pin(signaling_loop_fut.fuse());
+        loop {
+            select! {
+                _ = message_loop_done => {
+                    debug!("Message loop completed");
+                    return Ok(())
                 }
-            }
 
-            complete => break
+                sigloop = signaling_loop_done => {
+                    match sigloop {
+                        Ok(()) => debug!("Signaling loop completed"),
+                        Err(e) => {
+                            // TODO: Reconnect X attempts if configured to reconnect.
+                            error!("Signaling loop ended unexpectedly due to error: {e:?}");
+                            count += 1;
+
+                            if count > config.attempts {
+                                return Err(Error::from(e));
+                            } else {
+                                info!("Retrying dropped connection...");
+                                continue;
+                            }
+                        },
+                    }
+                }
+
+                complete => return Ok(())
+            }
         }
     }
-    Ok(())
 }
 
 #[cfg(test)]
