@@ -350,6 +350,11 @@ impl WebRtcChannel {
     pub fn send(&mut self, packet: Packet, peer: PeerId) {
         self.tx.unbounded_send((peer, packet)).expect("Send failed");
     }
+
+    /// Try to send a packet to the given peer.
+    pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result {
+        return self.tx.unbounded_send((peer, packet));
+    }
 }
 
 /// Contains a set of [`WebRtcChannel`]s and connection metadata.
@@ -553,6 +558,16 @@ impl WebRtcSocket<SingleChannel> {
 
     /// Send a packet to the given peer.
     pub fn send(&mut self, packet: Packet, peer: PeerId) {
+        self.channels
+            .get_mut(0)
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .send(packet, peer)
+    }
+
+    /// Send a packet to the given peer.
+    pub fn try_send(&mut self, packet: Packet, peer: PeerId) -> Result {
         self.channels
             .get_mut(0)
             .unwrap()
