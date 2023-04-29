@@ -7,7 +7,7 @@ use crate::{
     Error,
 };
 use futures::{future::Fuse, select, Future, FutureExt, StreamExt};
-use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
+use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender, TrySendError};
 use log::{debug, error, info};
 use matchbox_protocol::PeerId;
 use std::{collections::HashMap, marker::PhantomData, pin::Pin, time::Duration};
