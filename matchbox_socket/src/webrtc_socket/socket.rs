@@ -652,7 +652,7 @@ async fn run_socket(
                             error!("Signaling loop ended unexpectedly due to error: {e:?}");
                             count += 1;
 
-                            if count > config.attempts {
+                            if count > config.attempts.unwrap_or(3)) {
                                 return Err(Error::from(e));
                             } else {
                                 info!("Retrying dropped connection...");
